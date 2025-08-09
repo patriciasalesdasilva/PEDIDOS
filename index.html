@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedidos - Patricia Sales</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f8f8;
+            color: #333;
+        }
+        h1 {
+            color: #075e54;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+        .menu-section {
+            margin-top: 20px;
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .menu-section h2 {
+            color: #075e54;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .menu-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px dashed #eee;
+        }
+        .item-name {
+            flex-grow: 1;
+        }
+        .item-quantity {
+            width: 50px;
+            text-align: center;
+            margin-left: 10px;
+        }
+        .total-section {
+            margin-top: 20px;
+            background-color: #075e54;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 1.2em;
+        }
+        .payment-options {
+            margin: 20px 0;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .payment-option {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+        }
+        .payment-option input {
+            width: auto;
+            margin-right: 10px;
+            accent-color: #075e54;
+            transform: scale(1.2);
+        }
+        .pix-info {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: #f0f8ff;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .payment-method-required {
+            color: #d32f2f;
+            font-weight: bold;
+            display: none;
+            margin-top: 10px;
+        }
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            gap: 10px;
+        }
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        #whatsappBtn {
+            background-color: #25D366;
+            color: white;
+        }
+        #gerarPedidoBtn {
+            background-color: #128C7E;
+            color: white;
+        }
+        #comandaOutput {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            white-space: pre-line;
+            font-family: Arial;
+            display: none;
+            text-align: center;
+            font-weight: bold;
+            color: #075e54;
+        }
+        hr {
+            border: 0;
+            height: 1px;
+            background-color: #ddd;
+            margin: 20px 0;
+        }
+        #qrcode {
+            margin: 15px auto;
+            padding: 10px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        #qrcode img {
+            display: block;
+            margin: 0 auto;
+        }
+        .copy-qr-container {
+            margin-top: 15px;
+            text-align: center;
+        }
+        #copyQrBtn {
+            background-color: #075e54;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        #copyQrBtn:hover {
+            background-color: #128C7E;
+        }
+        #copySuccess {
+            color: #25D366;
+            font-weight: bold;
+            display: none;
+            margin-top: 5px;
+        }
+        .pix-instructions {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f0f8ff;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Faça seu Pedido</h1>
+
+    <div class="form-group">
+        <label for="nome">Nome:</label>
+        <input type="text" id="nome" placeholder="Digite seu nome completo" required oninput="this.value = this.value.toUpperCase()">
+    </div>
+
+    <div class="form-group">
+        <label for="endereco">Endereço:</label>
+        <input type="text" id="endereco" placeholder="Rua, Avenida, etc." required oninput="this.value = this.value.toUpperCase()">
+    </div>
+
+    <div class="form-group">
+        <label for="numero">Número:</label>
+        <input type="text" id="numero" placeholder="Número da casa" required oninput="this.value = this.value.toUpperCase()">
+    </div>
+
+    <hr>
+
+    <div class="menu-section">
+        <h2>FRITOS</h2>
+
+        <div class="menu-item">
+            <span class="item-name">Empada de frango - R$ 4,00</span>
+            <input type="number" class="item-quantity" min="0" value="0" data-price="4.00" data-name="Empada de frango">
+        </div>
+
+        <div class="menu-item">
+            <span class="item-name">Coxinha de frango - R$ 4,00</span>
+            <input type="number" class="item-quantity" min="0" value="0" data-price="4.00" data-name="Coxinha de frango">
+        </div>
+
+        <div class="menu-item">
+            <span class="item-name">Risole de carne - R$ 4,00</span>
+            <input type="number" class="item-quantity" min="0" value="0" data-price="4.00" data-name="Risole de carne">
+        </div>
+
+        <div class="menu-item">
+            <span class="item-name">Risole misto - R$ 4,00</span>
+            <input type="number" class="item-quantity" min="0" value="0" data-price="4.00" data-name="Risole misto">
+        </div>
+
+        <div class="menu-item">
+            <span class="item-name">Enrolado de salsicha - R$ 4,00</span>
+            <input type="number" class="item-quantity" min="0" value="0" data-price="4.00" data-name="Enrolado de salsicha">
+        </div>
+
+        <div class="menu-item">
+            <span class="item-name">Empada de goiabada - R$ 4,00</span>
+            <input type="number" class="item-quantity" min="0" value="0" data-price="4.00" data-name="Empada de goiabada">
+        </div>
+
+        <div class="menu-item">
+            <span class="item-name">Empada de chocolate - R$ 4,00</span>
+            <input type="number" class="item-quantity" min="0" value="0" data-price="4.00" data-name="Empada de chocolate">
+        </div>
+
+        <div class="menu-item">
+            <span class="item-name">Empada de leite condensado - R$ 4,00</span>
+            <input type="number" class="item-quantity" min="0" value="0" data-price="4.00" data-name="Empada de leite condensado">
+        </div>
+    </div>
+
+    <hr>
+
+    <div class="menu-section">
+        <h2>ASSADOS</h2>
+
+        <div class="menu-item">
+            <span class="item-name">Torta de frango - R$ 5,00</span>
+            <input type="number" class="item-quantity" min="0" value="0" data-price="5.00" data-name="Torta de frango">
+        </div>
+
+        <div class="menu-item">
+            <span class="item-name">Pão misto - R$ 4,00</span>
+            <input type="number" class="item-quantity" min="0" value="0" data-price="4.00" data-name="Pão misto">
+        </div>
+
+        <div class="menu-item">
+            <span class="item-name">Pão de calabresa - R$ 4,00</span>
+            <input type="number" class="item-quantity" min="0" value="0" data-price="4.00" data-name="Pão de calabresa">
+        </div>
+
+        <div class="menu-item">
+            <span class="item-name">Pão de frango - R$ 4,00</span>
+            <input type="number" class="item-quantity" min="0" value="0" data-price="4.00" data-name="Pão de frango">
+        </div>
+
+        <div class="menu-item">
+            <span class="item-name">Pão de salsicha - R$ 4,00</span>
+            <input type="number" class="item-quantity" min="0" value="0" data-price="4.00" data-name="Pão de salsicha">
+        </div>
+
+        <div class="menu-item">
+            <span class="item-name">Bolo de cenoura com chocolate - R$ 4,00</span>
+            <input type="number" class="item-quantity" min="0" value="0" data-price="4.00" data-name="Bolo de cenoura com chocolate">
+        </div>
+    </div>
+
+    <!-- Seção de pagamento adicionada -->
+    <div class="payment-options">
+        <h3>FORMA DE PAGAMENTO</h3>
+        <div class="payment-option">
+            <input type="radio" id="pix" name="payment" value="PIX">
+            <label for="pix">PIX</label>
+        </div>
+        <div class="payment-option">
+            <input type="radio" id="cartao" name="payment" value="CARTÃO">
+            <label for="cartao">Cartão</label>
+        </div>
+        <div class="payment-option">
+            <input type="radio" id="dinheiro" name="payment" value="DINHEIRO">
+            <label for="dinheiro">Dinheiro</label>
+        </div>
+        <div id="paymentMethodRequired" class="payment-method-required">Por favor, selecione uma forma de pagamento</div>
+        <div id="pixInfo" class="pix-info">
+            <h4>CHAVE PIX (WhatsApp): (88) 99742-7170</h4>
+            <p>Patricia Sales</p>
+            <div id="qrcode"></div>
+            <p>Valor: R$ <span id="pixValue">0,00</span></p>
+            <div class="copy-qr-container">
+                <button id="copyQrBtn">Copiar Código PIX</button>
+                <div id="copySuccess">Código PIX copiado!</div>
+            </div>
+            <div class="pix-instructions">
+                <p>Envie o comprovante para o WhatsApp após o pagamento</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="total-section">
+        Total: R$ <span id="totalValue">0,00</span>
+    </div>
+
+    <div class="buttons">
+        <button id="whatsappBtn">Enviar no WhatsApp</button>
+        <button id="gerarPedidoBtn">Gerar Pedido (PDF)</button>
+    </div>
+
+    <div id="comandaOutput"></div>
+
+    <script>
+        // Verifica se o jsPDF está carregado corretamente
+        if(typeof window.jspdf === 'undefined') {
+            alert('Erro: Biblioteca de PDF não carregada. Recarregue a página.');
+        }
+
+        // Variável global para número do pedido
+        let numeroPedido = Math.floor(Math.random() * 9000) + 1000;
+        let ultimoPDFBlob = null;
+
+        // Funções auxiliares para PIX
+        function campo(id, valor) { return id + String(valor.length).padStart(2, '0') + valor; }
+
+        function calculateCRC16(str) {
+            let crc = 0xFFFF;
+            for (let i = 0; i < str.length; i++) {
+                crc ^= str.charCodeAt(i) << 8;
+                for (let j = 0; j < 8; j++) {
+                    crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : crc << 1;
+                }
+            }
+            return ((crc & 0xFFFF).toString(16)).toUpperCase().padStart(4, '0');
+        }
+
+        // Função para copiar código PIX
+        function copyQRCodeToClipboard() {
+            const total = parseFloat(document.getElementById('totalValue').textContent.replace(',', '.'));
+            if (total <= 0) { alert('Adicione itens ao pedido e selecione PIX primeiro'); return; }
+            if (!document.getElementById('pix').checked) { alert('Selecione PIX como forma de pagamento primeiro'); return; }
+
+            const valorFormatado = Math.max(total, 4.00).toFixed(2);
+            const merchantAccountInfo = campo("00", "BR.GOV.BCB.PIX") + campo("01", "+5588997427170");
+            const payload = campo("00", "01") + campo("26", merchantAccountInfo) + campo("52", "0000") + 
+                           campo("53", "986") + campo("54", valorFormatado) + campo("58", "BR") + 
+                           campo("59", "PATRICIA SALES") + campo("60", "HORIZONTE") + 
+                           campo("62", campo("05", "PEDIDO" + numeroPedido)) + "6304";
+            const crc = calculateCRC16(payload);
+            const payloadFinal = payload + crc;
+
+            navigator.clipboard.writeText(payloadFinal).then(() => {
+                const copySuccess = document.getElementById('copySuccess');
+                copySuccess.style.display = 'block';
+                copySuccess.textContent = 'Código PIX copiado com sucesso!';
+                setTimeout(() => { copySuccess.style.display = 'none'; }, 2000);
+            }).catch(err => {
+                console.error('Erro ao copiar:', err);
+                alert('Não foi possível copiar o código PIX. Tente novamente.');
+            });
+        }
+
+        // Gerar QR Code PIX
+        function generatePixQRCode(valor) {
+            const qrcodeContainer = document.getElementById('qrcode');
+            qrcodeContainer.innerHTML = '';
+            try {
+                const valorNumerico = Math.max(parseFloat(valor), 4.00);
+                if (isNaN(valorNumerico)) throw new Error('Valor inválido');
+                const valorFormatado = valorNumerico.toFixed(2);
+                document.getElementById('pixValue').textContent = valorFormatado.replace('.', ',');
+                const merchantAccountInfo = campo("00", "BR.GOV.BCB.PIX") + campo("01", "+5588997427170");
+                const payload = campo("00", "01") + campo("26", merchantAccountInfo) + campo("52", "0000") + 
+                               campo("53", "986") + campo("54", valorFormatado) + campo("58", "BR") + 
+                               campo("59", "PATRICIA SALES") + campo("60", "HORIZONTE") + 
+                               campo("62", campo("05", "PEDIDO" + numeroPedido)) + "6304";
+                const crc = calculateCRC16(payload);
+                const payloadFinal = payload + crc;
+                new QRCode(qrcodeContainer, { 
+                    text: payloadFinal, 
+                    width: 200, 
+                    height: 200, 
+                    colorDark: "#000000", 
+                    colorLight: "#ffffff", 
+                    correctLevel: QRCode.CorrectLevel.H 
+                });
+            } catch (error) {
+                console.error('Erro ao gerar QR Code:', error);
+                qrcodeContainer.innerHTML = `<div style="color:red;padding:10px;">ERRO: ${error.message}</div>`;
+            }
+        }
+
+        // Função para atualizar o total
+        function updateTotal() {
+            let total = 0;
+            document.querySelectorAll('.item-quantity').forEach(input => {
+                const quantity = parseInt(input.value) || 0;
+                const price = parseFloat(input.dataset.price);
+                total += quantity * price;
+            });
+
+            const totalFormatado = total.toFixed(2);
+            document.getElementById('totalValue').textContent = totalFormatado.replace('.', ',');
+            document.getElementById('pixValue').textContent = totalFormatado.replace('.', ',');
+            
+            if (document.getElementById('pix').checked && total > 0) { 
+                generatePixQRCode(totalFormatado); 
+            }
+        }
+
+        // Função para gerar o conteúdo da comanda (para o PDF)
+        function gerarConteudoComanda() {
+            const nome = document.getElementById('nome').value.trim();
+            const endereco = document.getElementById('endereco').value.trim();
+            const numero = document.getElementById('numero').value.trim();
+            const total = document.getElementById('totalValue').textContent;
+            const pagamento = document.querySelector('input[name="payment"]:checked')?.value || "Não informado";
+
+            let comanda = `================================\n`;
+            comanda += `        PEDIDO #${numeroPedido} - PATRICIA SALGADOS\n`;
+            comanda += `================================\n\n`;
+            comanda += `Cliente: ${nome}\n`;
+            comanda += `Endereço: ${endereco}, nº ${numero}\n`;
+            comanda += `Pagamento: ${pagamento}\n\n`;
+            comanda += `ITENS:\n`;
+            comanda += `--------------------------------\n`;
+
+            document.querySelectorAll('.item-quantity').forEach(input => {
+                const quantity = parseInt(input.value) || 0;
+                if (quantity > 0) {
+                    const itemName = input.dataset.name;
+                    const price = parseFloat(input.dataset.price);
+                    const itemTotal = (quantity * price).toFixed(2).replace('.', ',');
+                    comanda += `${itemName.padEnd(30, '.')} x${quantity} R$ ${itemTotal}\n`;
+                }
+            });
+
+            comanda += `--------------------------------\n`;
+            comanda += `TOTAL: R$ ${total.padStart(10)}\n`;
+            comanda += `================================\n`;
+            comanda += `Data: ${new Date().toLocaleString()}\n`;
+            comanda += `================================`;
+
+            return comanda;
+        }
+
+        // Função para enviar o PDF para o Google Drive
+        function enviarParaGoogleDrive(pdfBlob, fileName) {
+            const scriptUrl = 'https://script.google.com/macros/s/AKfycbx5NTJtl5FlDjHiARh2DWE0WPaXPbWFfqv_iko3N6PpjqzKez2lqd0lbFN9BIEE16y1/exec';
+            
+            const comandaOutput = document.getElementById('comandaOutput');
+            comandaOutput.textContent = 'Enviando pedido para o sistema...';
+            comandaOutput.style.display = 'block';
+            
+            const reader = new FileReader();
+            reader.readAsDataURL(pdfBlob);
+            reader.onloadend = function() {
+                const base64data = reader.result.split(',')[1];
+                
+                fetch(scriptUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({
+                        file: base64data,
+                        fileName: fileName,
+                        numeroPedido: numeroPedido
+                    }),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                }).then(() => {
+                    comandaOutput.textContent = '✅ Pedido enviado com sucesso para o sistema!';
+                }).catch(error => {
+                    console.error('Erro ao enviar para o Drive:', error);
+                    comandaOutput.textContent = '⚠️ Pedido gerado, mas houve um erro ao enviar para o sistema.';
+                });
+            };
+        }
+
+        // Botão Gerar Pedido (PDF)
+        document.getElementById('gerarPedidoBtn').addEventListener('click', function() {
+            // Validação dos campos
+            const nome = document.getElementById('nome').value.trim();
+            const endereco = document.getElementById('endereco').value.trim();
+            const numero = document.getElementById('numero').value.trim();
+
+            if (!nome || !endereco || !numero) {
+                alert('Por favor, preencha seu nome, endereço e número!');
+                return;
+            }
+
+            // Verifica se há itens selecionados
+            let hasItems = false;
+            document.querySelectorAll('.item-quantity').forEach(input => {
+                if (parseInt(input.value) > 0) hasItems = true;
+            });
+
+            if (!hasItems) {
+                alert('Por favor, selecione pelo menos um item!');
+                return;
+            }
+
+            // Verifica se forma de pagamento foi selecionada
+            if (!document.querySelector('input[name="payment"]:checked')) {
+                document.getElementById('paymentMethodRequired').style.display = 'block';
+                return;
+            }
+
+            // Gera o conteúdo da comanda (para o PDF)
+            const comanda = gerarConteudoComanda();
+
+            // Mostra apenas mensagem de status
+            const comandaOutput = document.getElementById('comandaOutput');
+            comandaOutput.textContent = 'Enviando pedido para o sistema...';
+            comandaOutput.style.display = 'block';
+
+            // Gera o PDF
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                // Configurações do PDF
+                doc.setFont('helvetica');
+                doc.setFontSize(12);
+
+                // Cabeçalho
+                doc.setFontSize(16);
+                doc.setTextColor(7, 94, 84);
+                doc.text('PATRICIA SALGADOS - COMANDA', 105, 15, { align: 'center' });
+
+                doc.setFontSize(12);
+                doc.setTextColor(0, 0, 0);
+
+                // Conteúdo
+                const lines = comanda.split('\n');
+                let yPosition = 30;
+
+                lines.forEach(line => {
+                    if (line.includes('===')) {
+                        // Linha divisória
+                        doc.setDrawColor(7, 94, 84);
+                        doc.line(20, yPosition - 5, 190, yPosition - 5);
+                        yPosition += 5;
+                    } else if (line.trim() !== '') {
+                        // Conteúdo normal
+                        doc.text(line, 20, yPosition);
+                        yPosition += 7;
+                    }
+                });
+
+                // Rodapé
+                doc.setFontSize(10);
+                doc.setTextColor(100, 100, 100);
+                doc.text(`Comanda #${numeroPedido} - ${new Date().toLocaleString()}`, 105, 280, { align: 'center' });
+
+                // Salva o PDF como Blob
+                ultimoPDFBlob = doc.output('blob');
+
+                // Envia para o Google Drive               
+                
+                enviarParaGoogleDrive(ultimoPDFBlob, `Pedido_${numeroPedido}_PatriciaSales.pdf`);
+                
+               // Envia para o Google Drive
+               //enviarParaGoogleDrive(ultimoPDFBlob, `Pedido ${numeroPedido} ${formatarNomeArquivo(nome)}.pdf`);
+
+                // Incrementa número do pedido
+                numeroPedido++;
+
+            } catch (error) {
+                console.error('Erro ao gerar PDF:', error);
+                document.getElementById('comandaOutput').textContent = '⚠️ Erro ao gerar pedido. Recarregue a página e tente novamente.';
+            }
+        });
+
+        // Botão do WhatsApp
+        document.getElementById('whatsappBtn').addEventListener('click', function() {
+            if (!ultimoPDFBlob) {
+                alert('Por favor, gere o pedido (PDF) primeiro antes de enviar pelo WhatsApp.');
+                return;
+            }
+
+            const nome = document.getElementById('nome').value.trim();
+            const endereco = document.getElementById('endereco').value.trim();
+            const numero = document.getElementById('numero').value.trim();
+            const total = document.getElementById('totalValue').textContent;
+            const pagamento = document.querySelector('input[name="payment"]:checked')?.value || "Não informado";
+
+            let message = `*Pedido #${numeroPedido-1} - Patricia Sales*\n`;
+            message += `Nome: ${nome}\n`;
+            message += `Endereço: ${endereco}, nº ${numero}\n`;
+            message += `Pagamento: ${pagamento}\n\n`;
+            message += `*Itens:*\n`;
+
+            document.querySelectorAll('.item-quantity').forEach(input => {
+                const quantity = parseInt(input.value) || 0;
+                if (quantity > 0) {
+                    const itemName = input.dataset.name;
+                    const price = parseFloat(input.dataset.price);
+                    const itemTotal = (quantity * price).toFixed(2).replace('.', ',');
+                    message += `- ${itemName} x${quantity} ........ R$ ${itemTotal}\n`;
+                }
+            });
+
+            message += `\n*Total:* R$ ${total}`;
+
+            const phoneNumber = '5588997427170';
+            const encodedMessage = encodeURIComponent(message);
+            window.open(`https://wa.me/${phoneNumber}?text=${encodedMessage}`, '_blank');
+        });
+
+        // Event Listeners para PIX
+        document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar formulário
+            document.querySelectorAll('input[name="payment"]').forEach(radio => { radio.checked = false; });
+            document.getElementById('pixInfo').style.display = 'none';
+
+            // Atualizar total quando quantidade muda
+            document.querySelectorAll('.item-quantity').forEach(input => {
+                input.addEventListener('change', updateTotal);
+                input.addEventListener('input', updateTotal);
+            });
+
+            // Mostrar/ocultar informações do PIX
+            document.querySelectorAll('input[name="payment"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    document.getElementById('paymentMethodRequired').style.display = 'none';
+                    document.getElementById('pixInfo').style.display = this.value === 'PIX' ? 'block' : 'none';
+                    if (this.value === 'PIX') {
+                        const total = parseFloat(document.getElementById('totalValue').textContent.replace(',', '.'));
+                        if (total > 0) { generatePixQRCode(total.toFixed(2)); }
+                    }
+                });
+            });
+
+            // Botão copiar QR Code
+            document.getElementById('copyQrBtn').addEventListener('click', copyQRCodeToClipboard);
+        });
+    </script>
+</body>
+</html>
