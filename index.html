@@ -194,6 +194,11 @@
             text-align: center;
             font-size: 14px;
         }
+        .print-status {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #075e54;
+        }
     </style>
 </head>
 <body>
@@ -296,7 +301,6 @@
         </div>
     </div>
 
-    <!-- Seção de pagamento adicionada -->
     <div class="payment-options">
         <h3>FORMA DE PAGAMENTO</h3>
         <div class="payment-option">
@@ -337,6 +341,7 @@
     </div>
 
     <div id="comandaOutput"></div>
+    <div id="printStatus" class="print-status"></div>
 
     <script>
         // Verifica se o jsPDF está carregado corretamente
@@ -436,45 +441,10 @@
             }
         }
 
-        // Função para gerar o conteúdo da comanda (para o PDF)
-        function gerarConteudoComanda() {
-            const nome = document.getElementById('nome').value.trim();
-            const endereco = document.getElementById('endereco').value.trim();
-            const numero = document.getElementById('numero').value.trim();
-            const total = document.getElementById('totalValue').textContent;
-            const pagamento = document.querySelector('input[name="payment"]:checked')?.value || "Não informado";
-
-            let comanda = `================================\n`;
-            comanda += `        PEDIDO #${numeroPedido} - PATRICIA SALGADOS\n`;
-            comanda += `================================\n\n`;
-            comanda += `Cliente: ${nome}\n`;
-            comanda += `Endereço: ${endereco}, nº ${numero}\n`;
-            comanda += `Pagamento: ${pagamento}\n\n`;
-            comanda += `ITENS:\n`;
-            comanda += `--------------------------------\n`;
-
-            document.querySelectorAll('.item-quantity').forEach(input => {
-                const quantity = parseInt(input.value) || 0;
-                if (quantity > 0) {
-                    const itemName = input.dataset.name;
-                    const price = parseFloat(input.dataset.price);
-                    const itemTotal = (quantity * price).toFixed(2).replace('.', ',');
-                    comanda += `${itemName.padEnd(30, '.')} x${quantity} R$ ${itemTotal}\n`;
-                }
-            });
-
-            comanda += `--------------------------------\n`;
-            comanda += `TOTAL: R$ ${total.padStart(10)}\n`;
-            comanda += `================================\n`;
-            comanda += `Data: ${new Date().toLocaleString()}\n`;
-            comanda += `================================`;
-
-            return comanda;
-        }
-
-        // Função para enviar o PDF para o Google Drive
+        // Função para enviar para o Google Drive
         function enviarParaGoogleDrive(pdfBlob, fileName) {
-            const scriptUrl = 'https://script.google.com/macros/s/AKfycbx5NTJtl5FlDjHiARh2DWE0WPaXPbWFfqv_iko3N6PpjqzKez2lqd0lbFN9BIEE16y1/exec';
+            const nomeCliente = document.getElementById('nome').value.trim().toUpperCase().split(' ')[0];
+            const scriptUrl = 'https://script.google.com/macros/s/AKfycbzfl6yEpQqgAt3GhGYqwHd0yfT0sMfU58klBgNGzEc-7Aj_x9WAEmOfNwgpX_H7SYtL/exec';
             
             const comandaOutput = document.getElementById('comandaOutput');
             comandaOutput.textContent = 'Enviando pedido para o sistema...';
@@ -491,7 +461,8 @@
                     body: JSON.stringify({
                         file: base64data,
                         fileName: fileName,
-                        numeroPedido: numeroPedido
+                        numeroPedido: numeroPedido,
+                        cliente: nomeCliente
                     }),
                     headers: {
                         'Content-Type': 'application/json'
@@ -505,7 +476,50 @@
             };
         }
 
-        // Botão Gerar Pedido (PDF)
+      function imprimirNaKA1445(pdfBlob) {
+    const printStatus = document.getElementById('printStatus');
+    printStatus.textContent = 'Preparando para impressão...';
+
+    // Cria uma URL temporária para o PDF
+    const url = URL.createObjectURL(pdfBlob);
+    
+    // Abre em nova janela
+    const printWindow = window.open(url, '_blank');
+    
+    printWindow.onload = function() {
+        printWindow.focus();
+        printWindow.print(); // Dispara a impressão direto
+        printStatus.textContent = '✅ Pedido enviado para impressão com sucesso!';
+        setTimeout(() => { printStatus.textContent = ''; }, 5000);
+    };
+}
+
+
+        // Função auxiliar para quebrar texto em múltiplas linhas
+        function splitTextIntoLines(doc, text, maxWidth) {
+            const lines = [];
+            let currentLine = '';
+            
+            text.split(' ').forEach(word => {
+                const testLine = currentLine ? `${currentLine} ${word}` : word;
+                const testWidth = doc.getTextWidth(testLine);
+                
+                if (testWidth > maxWidth) {
+                    lines.push(currentLine);
+                    currentLine = word;
+                } else {
+                    currentLine = testLine;
+                }
+            });
+            
+            if (currentLine) {
+                lines.push(currentLine);
+            }
+            
+            return lines;
+        }
+
+        // Botão Gerar Pedido (PDF) - VERSÃO CORRIGIDA COM QUEBRA DE LINHA NO ENDEREÇO
         document.getElementById('gerarPedidoBtn').addEventListener('click', function() {
             // Validação dos campos
             const nome = document.getElementById('nome').value.trim();
@@ -534,62 +548,110 @@
                 return;
             }
 
-            // Gera o conteúdo da comanda (para o PDF)
-            const comanda = gerarConteudoComanda();
-
-            // Mostra apenas mensagem de status
+            // Mostra mensagem de status
             const comandaOutput = document.getElementById('comandaOutput');
-            comandaOutput.textContent = 'Enviando pedido para o sistema...';
+            comandaOutput.textContent = 'Processando pedido...';
             comandaOutput.style.display = 'block';
 
             // Gera o PDF
             try {
                 const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
+                const doc = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: [58, 210]
+                });
 
-                // Configurações do PDF
-                doc.setFont('helvetica');
-                doc.setFontSize(12);
+                // Configurações de fonte e layout para impressora térmica
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                
+                // Margens reduzidas
+                const marginLeft = 5;
+                let yPosition = 10;
 
                 // Cabeçalho
-                doc.setFontSize(16);
-                doc.setTextColor(7, 94, 84);
-                doc.text('PATRICIA SALGADOS - COMANDA', 105, 15, { align: 'center' });
-
                 doc.setFontSize(12);
-                doc.setTextColor(0, 0, 0);
+                doc.text('PATRICIA SALGADOS', 29, yPosition, { align: 'center' });
+                yPosition += 7;
+                doc.text(`PEDIDO #${numeroPedido}`, 29, yPosition, { align: 'center' });
+                yPosition += 10;
 
-                // Conteúdo
-                const lines = comanda.split('\n');
-                let yPosition = 30;
+                // INFORMAÇÕES DO CLIENTE - FORMATO CORRIGIDO COM QUEBRA DE LINHA
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                
+                // Nome do cliente
+                doc.text(`Cliente: ${nome}`, marginLeft, yPosition);
+                yPosition += 5;
+                
+                // Endereço com quebra de linha automática
+                const enderecoCompleto = `Endereço: ${endereco}, N° ${numero}`;
+                const maxWidth = 45; // Largura máxima em mm para a bobina 58mm (deixe margem)
+                const enderecoLines = splitTextIntoLines(doc, enderecoCompleto, maxWidth);
 
-                lines.forEach(line => {
-                    if (line.includes('===')) {
-                        // Linha divisória
-                        doc.setDrawColor(7, 94, 84);
-                        doc.line(20, yPosition - 5, 190, yPosition - 5);
+                enderecoLines.forEach(line => {
+                    doc.text(line, marginLeft, yPosition);
+                    yPosition += 5;
+                });
+                
+                // Forma de pagamento
+                doc.text(`Pagamento: ${document.querySelector('input[name="payment"]:checked')?.value || "Não informado"}`, marginLeft, yPosition);
+                yPosition += 10;
+
+                // Linha divisória
+                doc.setDrawColor(0);
+                doc.line(marginLeft, yPosition, 53, yPosition);
+                yPosition += 5;
+
+                // Itens
+                doc.text('ITENS:', marginLeft, yPosition);
+                yPosition += 5;
+                doc.line(marginLeft, yPosition, 53, yPosition);
+                yPosition += 5;
+
+                document.querySelectorAll('.item-quantity').forEach(input => {
+                    const quantity = parseInt(input.value) || 0;
+                    if (quantity > 0) {
+                        const itemName = input.dataset.name;
+                        const price = parseFloat(input.dataset.price);
+                        const itemTotal = (quantity * price).toFixed(2);
+                        
+                        // Formatação em duas linhas para melhor legibilidade
+                        doc.text(`${itemName.substring(0, 20)}`, marginLeft, yPosition);
                         yPosition += 5;
-                    } else if (line.trim() !== '') {
-                        // Conteúdo normal
-                        doc.text(line, 20, yPosition);
+                        doc.text(`x${quantity} ................ R$ ${itemTotal}`, marginLeft, yPosition);
                         yPosition += 7;
                     }
                 });
 
-                // Rodapé
-                doc.setFontSize(10);
-                doc.setTextColor(100, 100, 100);
-                doc.text(`Comanda #${numeroPedido} - ${new Date().toLocaleString()}`, 105, 280, { align: 'center' });
+                // Linha divisória
+                doc.line(marginLeft, yPosition, 53, yPosition);
+                yPosition += 5;
+
+                // Total
+                doc.setFont('helvetica', 'bold');
+                const total = document.getElementById('totalValue').textContent;
+                doc.text(`TOTAL: R$ ${total}`, marginLeft, yPosition);
+                yPosition += 10;
+
+                // Data e impressora
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Data: ${new Date().toLocaleString('pt-BR')}`, marginLeft, yPosition);
+                yPosition += 5;
+                 // comentei´para ver se sai o nome Impressora: KA 1445 
+                //doc.text('Impressora: KA 1445', marginLeft, yPosition);
 
                 // Salva o PDF como Blob
                 ultimoPDFBlob = doc.output('blob');
 
-                // Envia para o Google Drive               
-                
-                enviarParaGoogleDrive(ultimoPDFBlob, `Pedido_${numeroPedido}_PatriciaSales.pdf`);
-                
-               // Envia para o Google Drive
-               //enviarParaGoogleDrive(ultimoPDFBlob, `Pedido ${numeroPedido} ${formatarNomeArquivo(nome)}.pdf`);
+                // Nome do arquivo padronizado
+                const nomeCliente = nome.split(' ')[0].toUpperCase();
+                const fileName = `Pedido_${numeroPedido}_${nomeCliente}.pdf`;
+
+                // Envia para o Google Drive e imprime
+                enviarParaGoogleDrive(ultimoPDFBlob, fileName);
+                imprimirNaKA1445(ultimoPDFBlob, numeroPedido);
 
                 // Incrementa número do pedido
                 numeroPedido++;
